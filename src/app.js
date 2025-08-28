@@ -14,6 +14,15 @@ import budgetCategoryRoutes from "./routes/budgetCategoryRoutes.js";
 import savingsGoalRoutes from "./routes/savingsGoalRoutes.js";
 //class
 import classRoutes from "./routes/classRoutes.js";
+//study
+import studySessionRoutes from "./routes/studySessionRoutes.js";
+import assignmentRoutes from "./routes/assignmentRoutes.js";
+import studyGoalRoutes from "./routes/studyGoalRoutes.js";
+//question
+import questionRoutes from "./routes/questionRoutes.js";
+import answerRoutes from "./routes/answerRoutes.js";
+// performance
+import performanceRoutes from "./routes/performanceRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -33,6 +42,18 @@ app.use("/api/budget-categories", budgetCategoryRoutes);
 app.use("/api/savings-goals", savingsGoalRoutes);
 //class
 app.use("/api/classes", classRoutes);
+// study API routes
+app.use("/api/study-sessions", studySessionRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/study-goals", studyGoalRoutes);
+// questionAPI routes
+app.use("/api/questions", questionRoutes);
+app.use("/api/answers", answerRoutes);
+// performance API routes
+app.use("/api/performance", performanceRoutes);
 // add others: budget, planner, exam, unique
+// Other middleware and configurations...
+
+// Other middleware and configurations...
 
 export default app;
