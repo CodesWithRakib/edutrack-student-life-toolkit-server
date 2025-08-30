@@ -1,5 +1,6 @@
 import express from "express";
 import { verifyFirebaseToken } from "../middlewares/authMiddleware.js";
+import { requireAdmin } from "../middlewares/authorize.js";
 import {
   createUserIfNotExist,
   getMyProfile,
@@ -10,19 +11,18 @@ import {
 
 const router = express.Router();
 
-// Sync user (on login/signup)
-router.post("/sync", verifyFirebaseToken, createUserIfNotExist);
+// Apply Firebase authentication to ALL user routes
+router.use(verifyFirebaseToken);
 
-// Get logged-in user profile
-router.get("/me", verifyFirebaseToken, getMyProfile);
+// User sync route
+router.route("/sync").post(createUserIfNotExist);
 
-// Update own profile
-router.put("/me", verifyFirebaseToken, updateMyProfile);
+// Current user routes
+router.route("/me").get(getMyProfile).put(updateMyProfile);
 
-// Admin-only: Get all users
-router.get("/", verifyFirebaseToken, getAllUsers);
+// Admin-only routes
+router.route("/").get(requireAdmin, getAllUsers);
 
-// Admin-only: Update role (student/teacher/admin)
-router.patch("/:id/role", verifyFirebaseToken, updateUserRole);
+router.route("/:id/role").patch(requireAdmin, updateUserRole);
 
 export default router;

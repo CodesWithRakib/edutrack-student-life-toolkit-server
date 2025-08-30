@@ -1,5 +1,5 @@
-import BudgetCategory from "../models/BudgetCategory.js";
-import Transaction from "../models/Transaction.js";
+import BudgetCategory from "../models/budgetCategoryModel.js";
+import Transaction from "../models/transactionModel.js";
 
 // Helper function to calculate spent amount for a category
 const calculateSpent = async (userId, category) => {

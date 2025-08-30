@@ -1,4 +1,4 @@
-import SavingsGoal from "../models/SavingsGoal.js";
+import SavingsGoal from "../models/savingsGoalModel.js";
 
 // @desc    Create or update savings goal
 // @route   POST /api/savings-goals

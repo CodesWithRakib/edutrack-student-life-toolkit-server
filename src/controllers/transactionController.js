@@ -1,4 +1,4 @@
-import Transaction from "../models/Transaction.js";
+import Transaction from "../models/transactionModel.js";
 
 // @desc    Create a new transaction
 // @route   POST /api/transactions
