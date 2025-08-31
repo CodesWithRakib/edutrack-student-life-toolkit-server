@@ -1,4 +1,4 @@
-import Schedule from "../models/Schedule.js";
+import Schedule from "../models/ScheduleModel.js";
 
 // ✅ Create new schedule
 export const createSchedule = async (req, res) => {

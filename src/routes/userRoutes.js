@@ -12,17 +12,22 @@ import {
 const router = express.Router();
 
 // Apply Firebase authentication to ALL user routes
-router.use(verifyFirebaseToken);
+// router.use(verifyFirebaseToken);
 
 // User sync route
 router.route("/sync").post(createUserIfNotExist);
 
 // Current user routes
-router.route("/me").get(getMyProfile).put(updateMyProfile);
+router
+  .route("/me")
+  .get(verifyFirebaseToken, getMyProfile)
+  .put(verifyFirebaseToken, updateMyProfile);
 
 // Admin-only routes
-router.route("/").get(requireAdmin, getAllUsers);
+router.route("/").get(verifyFirebaseToken, requireAdmin, getAllUsers);
 
-router.route("/:id/role").patch(requireAdmin, updateUserRole);
+router
+  .route("/:id/role")
+  .patch(verifyFirebaseToken, requireAdmin, updateUserRole);
 
 export default router;
