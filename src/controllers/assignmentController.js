@@ -6,7 +6,6 @@ import Assignment from "../models/assignmentModel.js";
 export const createAssignment = async (req, res) => {
   try {
     const { title, subject, dueDate, priority, description } = req.body;
-
     const assignment = await Assignment.create({
       user: req.user._id,
       title,
@@ -15,7 +14,6 @@ export const createAssignment = async (req, res) => {
       priority,
       description,
     });
-
     res.status(201).json(assignment);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -30,12 +28,10 @@ export const getAssignments = async (req, res) => {
     const { completed, priority } = req.query;
     let filter = { user: req.user._id };
 
-    // Apply completion filter if provided
     if (completed !== undefined) {
       filter.completed = completed === "true";
     }
 
-    // Apply priority filter if provided
     if (priority) {
       filter.priority = priority;
     }
@@ -46,7 +42,6 @@ export const getAssignments = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // @desc    Update an assignment
 // @route   PUT /api/assignments/:id
 // @access  Private
@@ -77,20 +72,16 @@ export const toggleAssignmentCompletion = async (req, res) => {
       _id: req.params.id,
       user: req.user._id,
     });
-
     if (!assignment) {
       return res.status(404).json({ message: "Assignment not found" });
     }
-
     assignment.completed = !assignment.completed;
     await assignment.save();
-
     res.json(assignment);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 // @desc    Delete an assignment
 // @route   DELETE /api/assignments/:id
 // @access  Private

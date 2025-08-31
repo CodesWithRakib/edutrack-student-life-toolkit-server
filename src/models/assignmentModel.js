@@ -42,6 +42,18 @@ const assignmentSchema = new mongoose.Schema(
     feedback: {
       type: String,
     },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
+    },
+    description: {
+      type: String,
+    },
+    completed: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

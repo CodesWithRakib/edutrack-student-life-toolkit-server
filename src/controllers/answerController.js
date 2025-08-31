@@ -106,22 +106,19 @@ export const voteAnswer = async (req, res) => {
         .status(400)
         .json({ message: "Invalid vote type. Use 'up' or 'down'" });
     }
-
     const answer = await Answer.findById(req.params.id);
     if (!answer) {
       return res.status(404).json({ message: "Answer not found" });
     }
-
     // Check existing vote
     const existingVote = await voteModel.findOne({
       user: req.user._id,
       answer: req.params.id,
     });
-
     if (existingVote) {
       // Toggle vote if same type, otherwise change vote
       if (existingVote.type === type) {
-        await Vote.findByIdAndDelete(existingVote._id);
+        await voteModel.findByIdAndDelete(existingVote._id);
         answer.votes += type === "up" ? -1 : 1;
       } else {
         existingVote.type = type;
@@ -130,14 +127,13 @@ export const voteAnswer = async (req, res) => {
       }
     } else {
       // New vote
-      await Vote.create({
+      await voteModel.create({
         user: req.user._id,
         answer: req.params.id,
         type,
       });
       answer.votes += type === "up" ? 1 : -1;
     }
-
     await answer.save();
     res.json(answer);
   } catch (error) {
