@@ -1,5 +1,6 @@
 import Question from "../models/questionModel.js";
 import Answer from "../models/answerModel.js";
+import voteModel from "../models/voteModel.js";
 
 // @desc    Create a new answer
 // @route   POST /api/answers
@@ -99,20 +100,42 @@ export const deleteAnswer = async (req, res) => {
 // @access  Private
 export const voteAnswer = async (req, res) => {
   try {
-    const { type } = req.body; // "up" or "down"
+    const { type } = req.body;
+    if (!["up", "down"].includes(type)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid vote type. Use 'up' or 'down'" });
+    }
 
     const answer = await Answer.findById(req.params.id);
-
     if (!answer) {
       return res.status(404).json({ message: "Answer not found" });
     }
 
-    if (type === "up") {
-      answer.votes += 1;
-    } else if (type === "down") {
-      answer.votes -= 1;
+    // Check existing vote
+    const existingVote = await voteModel.findOne({
+      user: req.user._id,
+      answer: req.params.id,
+    });
+
+    if (existingVote) {
+      // Toggle vote if same type, otherwise change vote
+      if (existingVote.type === type) {
+        await Vote.findByIdAndDelete(existingVote._id);
+        answer.votes += type === "up" ? -1 : 1;
+      } else {
+        existingVote.type = type;
+        await existingVote.save();
+        answer.votes += type === "up" ? 2 : -2; // Adjust by 2 (remove old + add new)
+      }
     } else {
-      return res.status(400).json({ message: "Invalid vote type" });
+      // New vote
+      await Vote.create({
+        user: req.user._id,
+        answer: req.params.id,
+        type,
+      });
+      answer.votes += type === "up" ? 1 : -1;
     }
 
     await answer.save();
