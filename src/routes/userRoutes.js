@@ -7,6 +7,7 @@ import {
   updateMyProfile,
   getAllUsers,
   updateUserRole,
+  updateUserStatus,
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -29,5 +30,7 @@ router.route("/").get(verifyFirebaseToken, requireAdmin, getAllUsers);
 router
   .route("/:id/role")
   .patch(verifyFirebaseToken, requireAdmin, updateUserRole);
-
+router
+  .route("/:id/status")
+  .patch(verifyFirebaseToken, requireAdmin, updateUserStatus);
 export default router;
