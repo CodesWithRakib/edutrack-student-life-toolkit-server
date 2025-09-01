@@ -3,11 +3,10 @@ import Transaction from "../models/transactionModel.js";
 
 // Helper function to calculate spent amount for a category
 const calculateSpent = async (userId, category) => {
-  const result = await Transaction.aggregate([
+  return await Transaction.aggregate([
     { $match: { user: userId, category, type: "expense" } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
-  ]);
-  return result.length > 0 ? result[0].total : 0;
+  ]).then((result) => (result[0] ? result[0].total : 0));
 };
 
 // @desc    Create a budget category

@@ -7,9 +7,10 @@ export const createAssignment = async (req, res) => {
   try {
     const { title, subject, dueDate, priority, description } = req.body;
     const assignment = await Assignment.create({
-      user: req.user._id,
+      user: req.user.uid,
       title,
       subject,
+      date: new Date(),
       dueDate,
       priority,
       description,
@@ -19,14 +20,13 @@ export const createAssignment = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // @desc    Get all assignments for the logged-in user
 // @route   GET /api/assignments
 // @access  Private
 export const getAssignments = async (req, res) => {
   try {
     const { completed, priority } = req.query;
-    let filter = { user: req.user._id };
+    let filter = { user: req.user.uid };
 
     if (completed !== undefined) {
       filter.completed = completed === "true";
@@ -48,7 +48,7 @@ export const getAssignments = async (req, res) => {
 export const updateAssignment = async (req, res) => {
   try {
     const assignment = await Assignment.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -70,7 +70,7 @@ export const toggleAssignmentCompletion = async (req, res) => {
   try {
     const assignment = await Assignment.findOne({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
     if (!assignment) {
       return res.status(404).json({ message: "Assignment not found" });
@@ -89,7 +89,7 @@ export const deleteAssignment = async (req, res) => {
   try {
     const assignment = await Assignment.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!assignment) {

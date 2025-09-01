@@ -1,13 +1,20 @@
+// questionController.js
 import Question from "../models/questionModel.js";
 import Answer from "../models/answerModel.js";
 import Tag from "../models/tagModel.js";
+import { validationResult } from "express-validator";
 
 // @desc    Create a new question
 // @route   POST /api/questions
 // @access  Private
 export const createQuestion = async (req, res) => {
   try {
-    const { title, content, subject, tags } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { title, content, subject, tags, attachments } = req.body;
 
     const question = await Question.create({
       user: req.user._id,
@@ -15,6 +22,7 @@ export const createQuestion = async (req, res) => {
       content,
       subject,
       tags,
+      attachments,
     });
 
     // Update tag counts
@@ -28,26 +36,37 @@ export const createQuestion = async (req, res) => {
       }
     }
 
-    res.status(201).json(question);
+    res.status(201).json({
+      message: "Question created successfully",
+      question,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all questions with filtering and search
+// @desc    Get all questions with advanced filtering
 // @route   GET /api/questions
 // @access  Public
 export const getQuestions = async (req, res) => {
   try {
-    const { subject, search, page = 1, limit = 10 } = req.query;
+    const {
+      subject,
+      tags,
+      search,
+      sort = "newest",
+      page = 1,
+      limit = 10,
+    } = req.query;
+
     let filter = {};
+    let sortOptions = {};
 
-    // Apply subject filter if provided
-    if (subject && subject !== "all") {
-      filter.subject = subject;
-    }
+    // Apply filters
+    if (subject && subject !== "all") filter.subject = subject;
+    if (tags && tags.length > 0) filter.tags = { $all: tags };
 
-    // Apply search filter if provided
+    // Search functionality
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: "i" } },
@@ -56,11 +75,24 @@ export const getQuestions = async (req, res) => {
       ];
     }
 
+    // Sorting options
+    switch (sort) {
+      case "most-voted":
+        sortOptions = { votes: -1 };
+        break;
+      case "most-viewed":
+        sortOptions = { views: -1 };
+        break;
+      default: // newest
+        sortOptions = { createdAt: -1 };
+    }
+
     const questions = await Question.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
+      .sort(sortOptions)
       .skip((page - 1) * limit)
-      .populate("user", "name avatar");
+      .limit(parseInt(limit))
+      .populate("user", "name avatar")
+      .lean();
 
     const total = await Question.countDocuments(filter);
 
@@ -103,14 +135,42 @@ export const getQuestionById = async (req, res) => {
 // @access  Private
 export const updateQuestion = async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { title, content, subject, tags, attachments } = req.body;
+
     const question = await Question.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
-      req.body,
+      { title, content, subject, tags, attachments },
       { new: true }
     );
 
     if (!question) {
       return res.status(404).json({ message: "Question not found" });
+    }
+
+    // Update tag counts
+    if (tags && tags.length > 0) {
+      // Decrement old tags
+      const originalTags = question.tags || [];
+      for (const tagName of originalTags) {
+        if (!tags.includes(tagName)) {
+          await Tag.findOneAndUpdate(
+            { name: tagName },
+            { $inc: { count: -1 } }
+          );
+        }
+      }
+
+      // Increment new tags
+      for (const tagName of tags) {
+        if (!originalTags.includes(tagName)) {
+          await Tag.findOneAndUpdate({ name: tagName }, { $inc: { count: 1 } });
+        }
+      }
     }
 
     res.json(question);
@@ -156,18 +216,21 @@ export const voteQuestion = async (req, res) => {
   try {
     const { type } = req.body; // "up" or "down"
 
-    const question = await Question.findById(req.params.id);
+    if (!["up", "down"].includes(type)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid vote type. Use 'up' or 'down'" });
+    }
 
+    const question = await Question.findById(req.params.id);
     if (!question) {
       return res.status(404).json({ message: "Question not found" });
     }
 
     if (type === "up") {
       question.votes += 1;
-    } else if (type === "down") {
-      question.votes -= 1;
     } else {
-      return res.status(400).json({ message: "Invalid vote type" });
+      question.votes -= 1;
     }
 
     await question.save();
@@ -197,11 +260,13 @@ export const getStats = async (req, res) => {
     const totalQuestions = await Question.countDocuments();
     const totalAnswers = await Answer.countDocuments();
     const solvedQuestions = await Question.countDocuments({ solved: true });
+    const totalTags = await Tag.countDocuments();
 
     res.json({
       totalQuestions,
       totalAnswers,
       solvedQuestions,
+      totalTags,
       successRate:
         totalQuestions > 0
           ? Math.round((solvedQuestions / totalQuestions) * 100)

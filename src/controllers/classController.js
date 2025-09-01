@@ -80,17 +80,15 @@ export const getClassesByDay = async (req, res) => {
 export const getUpcomingClasses = async (req, res) => {
   try {
     const { limit = 3 } = req.query;
-
-    // Get current day and time
     const now = new Date();
-    const currentDay = now.toLocaleLowerCase("en-US", { weekday: "long" });
-    const currentTime =
-      now.getHours() +
-      ":" +
-      (now.getMinutes() < 10 ? "0" : "") +
-      now.getMinutes();
+    const currentDay = now
+      .toLocaleDateString("en-US", { weekday: "long" })
+      .toLowerCase();
+    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
 
-    // Find classes for today and future days
     const daysOrder = [
       "sunday",
       "monday",
@@ -101,36 +99,27 @@ export const getUpcomingClasses = async (req, res) => {
       "saturday",
     ];
     const currentDayIndex = daysOrder.indexOf(currentDay);
-
-    // Create an array of days starting from today
     const orderedDays = [
       ...daysOrder.slice(currentDayIndex),
       ...daysOrder.slice(0, currentDayIndex),
     ];
 
-    // Get classes for today and the next few days
     const upcomingClasses = [];
-
     for (const day of orderedDays) {
       const dayClasses = await Class.find({
         user: req.user._id,
         day,
-      }).sort({ time: 1 });
+      }).sort({ startTime: 1 });
 
       for (const cls of dayClasses) {
-        // If it's today, check if the class time is in the future
         if (day === currentDay) {
-          const classTime = cls.time.split(" - ")[0];
-          if (classTime < currentTime) continue;
+          if (cls.startTime <= currentTime) continue;
         }
-
         upcomingClasses.push(cls);
         if (upcomingClasses.length >= parseInt(limit)) break;
       }
-
       if (upcomingClasses.length >= parseInt(limit)) break;
     }
-
     res.json(upcomingClasses);
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -70,6 +70,18 @@ const classSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    startTime: {
+      type: String,
+      required: true,
+    },
+    endTime: {
+      type: String,
+      required: true,
+    },
+    durationMinutes: {
+      type: Number,
+      default: 60,
+    },
   },
   { timestamps: true }
 );

@@ -22,5 +22,6 @@ const budgetCategorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+budgetCategorySchema.index({ user: 1, category: 1 }, { unique: true });
 
 export default mongoose.model("BudgetCategory", budgetCategorySchema);
