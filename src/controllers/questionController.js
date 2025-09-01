@@ -17,7 +17,7 @@ export const createQuestion = async (req, res) => {
     const { title, content, subject, tags, attachments } = req.body;
 
     const question = await Question.create({
-      user: req.user._id,
+      user: req.user.uid,
       title,
       content,
       subject,
@@ -143,7 +143,7 @@ export const updateQuestion = async (req, res) => {
     const { title, content, subject, tags, attachments } = req.body;
 
     const question = await Question.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       { title, content, subject, tags, attachments },
       { new: true }
     );
@@ -186,7 +186,7 @@ export const deleteQuestion = async (req, res) => {
   try {
     const question = await Question.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!question) {

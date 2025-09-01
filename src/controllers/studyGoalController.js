@@ -10,7 +10,7 @@ export const createStudyGoal = async (req, res) => {
 
     // Check if a goal for this subject and period already exists
     const existingGoal = await StudyGoal.findOne({
-      user: req.user._id,
+      user: req.user.uid,
       subject,
       period,
     });
@@ -22,7 +22,7 @@ export const createStudyGoal = async (req, res) => {
     }
 
     const studyGoal = await StudyGoal.create({
-      user: req.user._id,
+      user: req.user.uid,
       subject,
       targetHours,
       period,
@@ -42,7 +42,7 @@ export const createStudyGoal = async (req, res) => {
 export const getStudyGoals = async (req, res) => {
   try {
     const { period } = req.query;
-    let filter = { user: req.user._id };
+    let filter = { user: req.user.uid };
 
     // Apply period filter if provided
     if (period) {
@@ -56,7 +56,7 @@ export const getStudyGoals = async (req, res) => {
       studyGoals.map(async (goal) => {
         // Calculate completed hours based on completed study sessions
         const completedHours = await calculateCompletedHours(
-          req.user._id,
+          req.user.uid,
           goal.subject,
           goal.period,
           goal.startDate,
@@ -131,7 +131,7 @@ const calculateCompletedHours = async (
 export const updateStudyGoal = async (req, res) => {
   try {
     const studyGoal = await StudyGoal.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -142,7 +142,7 @@ export const updateStudyGoal = async (req, res) => {
 
     // Recalculate completed hours
     studyGoal.completedHours = await calculateCompletedHours(
-      req.user._id,
+      req.user.uid,
       studyGoal.subject,
       studyGoal.period,
       studyGoal.startDate,
@@ -164,7 +164,7 @@ export const deleteStudyGoal = async (req, res) => {
   try {
     const studyGoal = await StudyGoal.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!studyGoal) {

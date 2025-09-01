@@ -7,7 +7,7 @@ export const createTransaction = async (req, res) => {
   try {
     const { category, amount, date, type, description } = req.body;
     const transaction = await Transaction.create({
-      user: req.user._id,
+      user: req.user.uid,
       category,
       amount,
       date,
@@ -26,7 +26,7 @@ export const createTransaction = async (req, res) => {
 export const getTransactions = async (req, res) => {
   try {
     const { timeRange } = req.query;
-    let filter = { user: req.user._id };
+    let filter = { user: req.user.uid };
 
     // Apply time range filter if provided
     if (timeRange) {
@@ -67,7 +67,7 @@ export const getTransactions = async (req, res) => {
 export const getTransactionSummary = async (req, res) => {
   try {
     const { timeRange } = req.query;
-    let filter = { user: req.user._id };
+    let filter = { user: req.user.uid };
 
     // Apply time range filter if provided
     if (timeRange) {
@@ -123,7 +123,7 @@ export const getTransactionSummary = async (req, res) => {
 export const updateTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -145,7 +145,7 @@ export const deleteTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!transaction) {

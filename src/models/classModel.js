@@ -3,8 +3,7 @@ import mongoose from "mongoose";
 const classSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
     },
     title: {
@@ -13,7 +12,9 @@ const classSchema = new mongoose.Schema(
     },
     time: {
       type: String,
-      required: true,
+      default: function () {
+        return `${this.startTime} - ${this.endTime}`;
+      },
     },
     location: {
       type: String,
@@ -71,11 +72,11 @@ const classSchema = new mongoose.Schema(
       default: true,
     },
     startTime: {
-      type: String,
+      type: Number,
       required: true,
     },
     endTime: {
-      type: String,
+      type: Number,
       required: true,
     },
     durationMinutes: {
@@ -85,5 +86,7 @@ const classSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+classSchema.index({ user: 1, day: 1, startTime: 1 });
 
 export default mongoose.model("Class", classSchema);

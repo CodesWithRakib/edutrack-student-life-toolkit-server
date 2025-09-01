@@ -8,7 +8,7 @@ import StudyGoal from "../models/studyGoalModel.js";
 // @access  Private
 export const getPerformanceOverview = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.uid;
 
     // Get overall average grade
     const grades = await Grade.find({ user: userId });
@@ -72,7 +72,7 @@ export const getPerformanceOverview = async (req, res) => {
 // @access  Private
 export const getGradesData = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.uid;
 
     // Get grades by subject
     const grades = await Grade.find({ user: userId }).sort({ subject: 1 });
@@ -101,7 +101,7 @@ export const getGradesData = async (req, res) => {
 // @access  Private
 export const getStudyAnalytics = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.uid;
 
     // Get weekly study pattern
     const startOfWeek = new Date();
@@ -178,7 +178,7 @@ export const getStudyAnalytics = async (req, res) => {
 // @access  Private
 export const getStudyRecommendations = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.uid;
 
     // Get grades to identify weak subjects
     const grades = await Grade.find({ user: userId });

@@ -8,7 +8,7 @@ export const createStudySession = async (req, res) => {
     const { subject, topic, duration, date, time, priority, notes } = req.body;
 
     const studySession = await StudySession.create({
-      user: req.user._id,
+      user: req.user.uid,
       subject,
       topic,
       duration,
@@ -30,7 +30,7 @@ export const createStudySession = async (req, res) => {
 export const getStudySessions = async (req, res) => {
   try {
     const { period, completed } = req.query;
-    let filter = { user: req.user._id };
+    let filter = { user: req.user.uid };
 
     // Apply period filter if provided
     if (period) {
@@ -83,7 +83,7 @@ export const getStudySessions = async (req, res) => {
 export const updateStudySession = async (req, res) => {
   try {
     const studySession = await StudySession.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -105,7 +105,7 @@ export const toggleStudySessionCompletion = async (req, res) => {
   try {
     const studySession = await StudySession.findOne({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!studySession) {
@@ -128,7 +128,7 @@ export const deleteStudySession = async (req, res) => {
   try {
     const studySession = await StudySession.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!studySession) {

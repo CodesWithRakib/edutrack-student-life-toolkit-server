@@ -8,7 +8,7 @@ export const setSavingsGoal = async (req, res) => {
     const { target, current, description } = req.body;
 
     // Check if savings goal exists for the user
-    let savingsGoal = await SavingsGoal.findOne({ user: req.user._id });
+    let savingsGoal = await SavingsGoal.findOne({ user: req.user.uid });
 
     if (savingsGoal) {
       // Update existing goal
@@ -19,7 +19,7 @@ export const setSavingsGoal = async (req, res) => {
     } else {
       // Create new goal
       savingsGoal = await SavingsGoal.create({
-        user: req.user._id,
+        user: req.user.uid,
         target,
         current,
         description,
@@ -37,7 +37,7 @@ export const setSavingsGoal = async (req, res) => {
 // @access  Private
 export const getSavingsGoal = async (req, res) => {
   try {
-    const savingsGoal = await SavingsGoal.findOne({ user: req.user._id });
+    const savingsGoal = await SavingsGoal.findOne({ user: req.user.uid });
 
     if (!savingsGoal) {
       return res.status(404).json({ message: "Savings goal not set" });
@@ -55,7 +55,7 @@ export const getSavingsGoal = async (req, res) => {
 export const updateSavingsGoal = async (req, res) => {
   try {
     const savingsGoal = await SavingsGoal.findOneAndUpdate(
-      { user: req.user._id },
+      { user: req.user.uid },
       req.body,
       { new: true, upsert: true }
     );

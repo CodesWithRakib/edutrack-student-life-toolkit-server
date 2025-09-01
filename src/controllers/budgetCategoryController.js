@@ -18,7 +18,7 @@ export const createBudgetCategory = async (req, res) => {
 
     // Check if category already exists for this user
     const existingCategory = await BudgetCategory.findOne({
-      user: req.user._id,
+      user: req.user.uid,
       category,
     });
 
@@ -27,7 +27,7 @@ export const createBudgetCategory = async (req, res) => {
     }
 
     const budgetCategory = await BudgetCategory.create({
-      user: req.user._id,
+      user: req.user.uid,
       category,
       budget,
       color,
@@ -44,12 +44,12 @@ export const createBudgetCategory = async (req, res) => {
 // @access  Private
 export const getBudgetCategories = async (req, res) => {
   try {
-    const budgetCategories = await BudgetCategory.find({ user: req.user._id });
+    const budgetCategories = await BudgetCategory.find({ user: req.user.uid });
 
     // Calculate spent amount for each category
     const categoriesWithSpent = await Promise.all(
       budgetCategories.map(async (category) => {
-        const spent = await calculateSpent(req.user._id, category.category);
+        const spent = await calculateSpent(req.user.uid, category.category);
         return { ...category.toObject(), spent };
       })
     );
@@ -66,7 +66,7 @@ export const getBudgetCategories = async (req, res) => {
 export const updateBudgetCategory = async (req, res) => {
   try {
     const budgetCategory = await BudgetCategory.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -76,7 +76,7 @@ export const updateBudgetCategory = async (req, res) => {
     }
 
     // Calculate spent amount
-    const spent = await calculateSpent(req.user._id, budgetCategory.category);
+    const spent = await calculateSpent(req.user.uid, budgetCategory.category);
 
     res.json({ ...budgetCategory.toObject(), spent });
   } catch (error) {
@@ -91,7 +91,7 @@ export const deleteBudgetCategory = async (req, res) => {
   try {
     const budgetCategory = await BudgetCategory.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!budgetCategory) {

@@ -19,7 +19,7 @@ export const createClass = async (req, res) => {
     } = req.body;
 
     const newClass = await Class.create({
-      user: req.user._id,
+      user: req.user.uid,
       title,
       time,
       location,
@@ -44,7 +44,7 @@ export const createClass = async (req, res) => {
 export const getClasses = async (req, res) => {
   try {
     const { day, type } = req.query;
-    let filter = { user: req.user._id };
+    let filter = { user: req.user.uid };
 
     // Apply filters if provided
     if (day) filter.day = day;
@@ -64,7 +64,7 @@ export const getClassesByDay = async (req, res) => {
   try {
     const { day } = req.params;
     const classes = await Class.find({
-      user: req.user._id,
+      user: req.user.uid,
       day: day.toLowerCase(),
     }).sort({ time: 1 });
 
@@ -107,7 +107,7 @@ export const getUpcomingClasses = async (req, res) => {
     const upcomingClasses = [];
     for (const day of orderedDays) {
       const dayClasses = await Class.find({
-        user: req.user._id,
+        user: req.user.uid,
         day,
       }).sort({ startTime: 1 });
 
@@ -140,16 +140,15 @@ export const getWeeklySchedule = async (req, res) => {
       "saturday",
       "sunday",
     ];
-    const weeklySchedule = {};
+    const classes = await Class.find({ user: req.user.uid }).sort({
+      day: 1,
+      startTime: 1,
+    });
 
-    for (const day of days) {
-      const classes = await Class.find({
-        user: req.user._id,
-        day,
-      }).sort({ time: 1 });
-
-      weeklySchedule[day] = classes;
-    }
+    const weeklySchedule = days.reduce((acc, day) => {
+      acc[day] = classes.filter((cls) => cls.day === day);
+      return acc;
+    }, {});
 
     res.json(weeklySchedule);
   } catch (error) {
@@ -163,7 +162,7 @@ export const getWeeklySchedule = async (req, res) => {
 export const updateClass = async (req, res) => {
   try {
     const classItem = await Class.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -185,7 +184,7 @@ export const deleteClass = async (req, res) => {
   try {
     const classItem = await Class.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!classItem) {

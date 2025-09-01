@@ -11,7 +11,7 @@ export const createAnswer = async (req, res) => {
 
     const answer = await Answer.create({
       question: questionId,
-      user: req.user._id,
+      user: req.user.uid,
       content,
     });
 
@@ -47,7 +47,7 @@ export const getAnswersByQuestion = async (req, res) => {
 export const updateAnswer = async (req, res) => {
   try {
     const answer = await Answer.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.uid },
       req.body,
       { new: true }
     );
@@ -69,7 +69,7 @@ export const deleteAnswer = async (req, res) => {
   try {
     const answer = await Answer.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.uid,
     });
 
     if (!answer) {
@@ -112,7 +112,7 @@ export const voteAnswer = async (req, res) => {
     }
     // Check existing vote
     const existingVote = await voteModel.findOne({
-      user: req.user._id,
+      user: req.user.uid,
       answer: req.params.id,
     });
     if (existingVote) {
@@ -128,7 +128,7 @@ export const voteAnswer = async (req, res) => {
     } else {
       // New vote
       await voteModel.create({
-        user: req.user._id,
+        user: req.user.uid,
         answer: req.params.id,
         type,
       });
@@ -153,7 +153,7 @@ export const acceptAnswer = async (req, res) => {
     }
 
     // Check if the user is the owner of the question
-    if (answer.question.user.toString() !== req.user._id.toString()) {
+    if (answer.question.user.toString() !== req.user.uid.toString()) {
       return res
         .status(403)
         .json({ message: "Not authorized to accept this answer" });
