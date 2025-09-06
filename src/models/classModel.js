@@ -2,28 +2,10 @@ import mongoose from "mongoose";
 
 const classSchema = new mongoose.Schema(
   {
-    user: {
-      type: String,
-      required: true,
-    },
-    title: {
-      type: String,
-      required: true,
-    },
-    time: {
-      type: String,
-      default: function () {
-        return `${this.startTime} - ${this.endTime}`;
-      },
-    },
-    location: {
-      type: String,
-      required: true,
-    },
-    instructor: {
-      type: String,
-      required: true,
-    },
+    user: { type: String, required: true },
+    title: { type: String, required: true },
+    location: { type: String, required: true },
+    instructor: { type: String, required: true },
     type: {
       type: String,
       enum: ["lecture", "lab", "tutorial", "discussion"],
@@ -57,31 +39,13 @@ const classSchema = new mongoose.Schema(
         return colors[this.type] || "bg-gray-100 text-gray-800";
       },
     },
-    description: {
-      type: String,
-    },
-    startDate: {
-      type: Date,
-      default: Date.now,
-    },
-    endDate: {
-      type: Date,
-    },
+    description: { type: String },
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
     recurring: {
-      type: Boolean,
-      default: true,
-    },
-    startTime: {
-      type: Number,
-      required: true,
-    },
-    endTime: {
-      type: Number,
-      required: true,
-    },
-    durationMinutes: {
-      type: Number,
-      default: 60,
+      type: String,
+      enum: ["none", "daily", "weekly"],
+      default: "weekly",
     },
   },
   { timestamps: true }

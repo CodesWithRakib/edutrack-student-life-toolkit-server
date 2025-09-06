@@ -9,8 +9,12 @@ import {
   getPopularTags,
   getStats,
 } from "../controllers/questionController.js";
+import { verifyFirebaseToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
+
+// Apply Firebase authentication to ALL user routes
+router.use(verifyFirebaseToken);
 
 // Public routes
 router.route("/").get(getQuestions);

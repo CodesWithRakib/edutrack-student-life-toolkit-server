@@ -1,6 +1,10 @@
+// src/controllers/userController.js
+import admin from "../config/firebase.js";
 import User from "../models/userModel.js";
 
+// ------------------
 // Sync Firebase user with DB
+// ------------------
 export const createUserIfNotExist = async (req, res) => {
   try {
     const { uid, email, name } = req.body;
@@ -8,10 +12,8 @@ export const createUserIfNotExist = async (req, res) => {
       return res.status(400).json({ message: "Invalid Firebase user data." });
     }
 
-    // Check if user exists
     let user = await User.findOne({ firebaseUid: uid });
     if (!user) {
-      // Create new user with proper defaults including lastLogin
       user = await User.create({
         firebaseUid: uid,
         email,
@@ -27,14 +29,11 @@ export const createUserIfNotExist = async (req, res) => {
         user,
       });
     } else {
-      // Update existing user info if changed
       const updates = {};
       if (name && name !== user.name) updates.name = name;
       if (email !== user.email) updates.email = email;
-
-      // Add lastLogin update if needed
       if (!user.lastLogin || Object.keys(updates).length > 0) {
-        updates.lastLogin = new Date(); // Update lastLogin on any change
+        updates.lastLogin = new Date();
       }
 
       if (Object.keys(updates).length > 0) {
@@ -54,10 +53,12 @@ export const createUserIfNotExist = async (req, res) => {
   }
 };
 
+// ------------------
 // Get own profile
+// ------------------
 export const getMyProfile = async (req, res) => {
-  const { uid } = req.user;
   try {
+    const { uid } = req.user;
     const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
@@ -66,7 +67,9 @@ export const getMyProfile = async (req, res) => {
   }
 };
 
-// Update profile
+// ------------------
+// Update own profile
+// ------------------
 export const updateMyProfile = async (req, res) => {
   try {
     const updates = req.body;
@@ -82,19 +85,18 @@ export const updateMyProfile = async (req, res) => {
   }
 };
 
-// Get all users (Admin only)
+// ------------------
+// Get all users (Admin only) with pagination
+// ------------------
 export const getAllUsers = async (req, res) => {
   try {
-    const { uid } = req.user;
-    // Check if requesting user is admin
-    const requestingUser = await User.findOne({ firebaseUid: uid });
+    const requestingUser = await User.findOne({ firebaseUid: req.user.uid });
     if (!requestingUser || requestingUser.role !== "admin") {
       return res
         .status(403)
         .json({ message: "Forbidden: Admin access required" });
     }
 
-    // Add pagination support
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -102,7 +104,7 @@ export const getAllUsers = async (req, res) => {
     const users = await User.find()
       .skip(skip)
       .limit(limit)
-      .sort({ createdAt: -1 }); // Sort by newest first
+      .sort({ createdAt: -1 });
 
     const totalUsers = await User.countDocuments();
 
@@ -117,12 +119,12 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+// ------------------
 // Update user role (Admin only)
+// ------------------
 export const updateUserRole = async (req, res) => {
   try {
-    const { uid } = req.user; // Get Firebase UID
-    // First check if the requesting user is an admin
-    const requestingUser = await User.findOne({ firebaseUid: uid });
+    const requestingUser = await User.findOne({ firebaseUid: req.user.uid });
     if (!requestingUser || requestingUser.role !== "admin") {
       return res
         .status(403)
@@ -140,24 +142,24 @@ export const updateUserRole = async (req, res) => {
       { new: true }
     );
 
-    if (!updatedUser) {
+    if (!updatedUser)
       return res.status(404).json({ message: "User not found" });
-    }
-
     res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+// ------------------
 // Update user status (Admin only)
+// ------------------
 export const updateUserStatus = async (req, res) => {
   try {
-    const { uid } = req.user;
-    const requestingUser = await User.findOne({ firebaseUid: uid });
-    
+    const requestingUser = await User.findOne({ firebaseUid: req.user.uid });
     if (!requestingUser || requestingUser.role !== "admin") {
-      return res.status(403).json({ message: "Forbidden: Admin access required" });
+      return res
+        .status(403)
+        .json({ message: "Forbidden: Admin access required" });
     }
 
     const { status } = req.body;
@@ -171,36 +173,100 @@ export const updateUserStatus = async (req, res) => {
       { new: true }
     );
 
-    if (!updatedUser) {
+    if (!updatedUser)
       return res.status(404).json({ message: "User not found" });
-    }
-
     res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+// ------------------
+// Delete user (Admin + Firebase)
+// ------------------
+export const deleteUser = async (req, res) => {
+  try {
+    const requestingUser = await User.findOne({ firebaseUid: req.user.uid });
+    if (!requestingUser || requestingUser.role !== "admin") {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: Admin access required" });
+    }
 
-// New utility functions
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Delete from Firebase Auth
+    if (user.firebaseUid) {
+      try {
+        await admin.auth().deleteUser(user.firebaseUid);
+      } catch (firebaseError) {
+        console.error("Firebase delete error:", firebaseError);
+      }
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ------------------
+// Suspend user (Admin only)
+// ------------------
+export const suspendUser = async (req, res) => {
+  try {
+    const requestingUser = await User.findOne({ firebaseUid: req.user.uid });
+    if (!requestingUser || requestingUser.role !== "admin") {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: Admin access required" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { status: "suspended" },
+      { new: true }
+    );
+
+    if (!updatedUser)
+      return res.status(404).json({ message: "User not found" });
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ------------------
+// Activate user (Admin only)
+// ------------------
+export const activateUser = async (req, res) => {
+  try {
+    const requestingUser = await User.findOne({ firebaseUid: req.user.uid });
+    if (!requestingUser || requestingUser.role !== "admin") {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: Admin access required" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { status: "active" },
+      { new: true }
+    );
+
+    if (!updatedUser)
+      return res.status(404).json({ message: "User not found" });
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ------------------
+// Utility: get user by ID
+// ------------------
 export const getUserById = async (id) => {
   return await User.findById(id);
-};
-
-export const suspendUser = async (id) => {
-  const user = await User.findByIdAndUpdate(
-    id,
-    { status: "suspended" },
-    { new: true }
-  );
-  return user;
-};
-
-export const activateUser = async (id) => {
-  const user = await User.findByIdAndUpdate(
-    id,
-    { status: "active" },
-    { new: true }
-  );
-  return user;
 };

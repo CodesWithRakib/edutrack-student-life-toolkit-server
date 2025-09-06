@@ -7,29 +7,27 @@ export const createClass = async (req, res) => {
   try {
     const {
       title,
-      time,
+      startTime,
+      endTime,
       location,
       instructor,
       type,
       day,
       description,
-      startDate,
-      endDate,
       recurring,
     } = req.body;
 
     const newClass = await Class.create({
       user: req.user.uid,
       title,
-      time,
+      startTime,
+      endTime,
       location,
       instructor,
       type,
-      day,
+      day: day.toLowerCase(),
       description,
-      startDate,
-      endDate,
-      recurring,
+      recurring: recurring || "weekly", // match schema enum default
     });
 
     res.status(201).json(newClass);
@@ -46,11 +44,10 @@ export const getClasses = async (req, res) => {
     const { day, type } = req.query;
     let filter = { user: req.user.uid };
 
-    // Apply filters if provided
-    if (day) filter.day = day;
+    if (day) filter.day = day.toLowerCase();
     if (type) filter.type = type;
 
-    const classes = await Class.find(filter).sort({ day: 1, time: 1 });
+    const classes = await Class.find(filter).sort({ day: 1, startTime: 1 });
     res.json(classes);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -66,7 +63,7 @@ export const getClassesByDay = async (req, res) => {
     const classes = await Class.find({
       user: req.user.uid,
       day: day.toLowerCase(),
-    }).sort({ time: 1 });
+    }).sort({ startTime: 1 });
 
     res.json(classes);
   } catch (error) {
@@ -79,15 +76,12 @@ export const getClassesByDay = async (req, res) => {
 // @access  Private
 export const getUpcomingClasses = async (req, res) => {
   try {
-    const { limit = 3 } = req.query;
+    const { limit = 5 } = req.query;
     const now = new Date();
     const currentDay = now
       .toLocaleDateString("en-US", { weekday: "long" })
       .toLowerCase();
-    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`;
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
 
     const daysOrder = [
       "sunday",
@@ -112,9 +106,7 @@ export const getUpcomingClasses = async (req, res) => {
       }).sort({ startTime: 1 });
 
       for (const cls of dayClasses) {
-        if (day === currentDay) {
-          if (cls.startTime <= currentTime) continue;
-        }
+        if (day === currentDay && cls.startTime <= currentTime) continue;
         upcomingClasses.push(cls);
         if (upcomingClasses.length >= parseInt(limit)) break;
       }
@@ -145,10 +137,10 @@ export const getWeeklySchedule = async (req, res) => {
       startTime: 1,
     });
 
-    const weeklySchedule = days.reduce((acc, day) => {
-      acc[day] = classes.filter((cls) => cls.day === day);
-      return acc;
-    }, {});
+    const weeklySchedule = {};
+    days.forEach((day) => {
+      weeklySchedule[day] = classes.filter((cls) => cls.day === day);
+    });
 
     res.json(weeklySchedule);
   } catch (error) {
@@ -161,10 +153,16 @@ export const getWeeklySchedule = async (req, res) => {
 // @access  Private
 export const updateClass = async (req, res) => {
   try {
+    const { day, ...updates } = req.body;
+
+    if (day) {
+      updates.day = day.toLowerCase();
+    }
+
     const classItem = await Class.findOneAndUpdate(
       { _id: req.params.id, user: req.user.uid },
-      req.body,
-      { new: true }
+      updates,
+      { new: true, runValidators: true }
     );
 
     if (!classItem) {

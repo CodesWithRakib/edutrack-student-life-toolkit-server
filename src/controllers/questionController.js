@@ -213,8 +213,9 @@ export const deleteQuestion = async (req, res) => {
 // @route   POST /api/questions/:id/vote
 // @access  Private
 export const voteQuestion = async (req, res) => {
+  console.log(req.body);
   try {
-    const { type } = req.body; // "up" or "down"
+    const { type } = req.body;
 
     if (!["up", "down"].includes(type)) {
       return res

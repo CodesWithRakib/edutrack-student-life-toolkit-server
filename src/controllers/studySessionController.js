@@ -5,13 +5,14 @@ import StudySession from "../models/studySessionModel.js";
 // @access  Private
 export const createStudySession = async (req, res) => {
   try {
-    const { subject, topic, duration, date, time, priority, notes } = req.body;
+    const { subject, topic, durationMinutes, date, time, priority, notes } =
+      req.body;
 
     const studySession = await StudySession.create({
       user: req.user.uid,
       subject,
       topic,
-      duration,
+      durationMinutes,
       date,
       time,
       priority,
@@ -30,13 +31,11 @@ export const createStudySession = async (req, res) => {
 export const getStudySessions = async (req, res) => {
   try {
     const { period, completed } = req.query;
-    let filter = { user: req.user.uid };
+    const filter = { user: req.user.uid };
 
-    // Apply period filter if provided
+    const now = new Date();
     if (period) {
-      const now = new Date();
       let startDate;
-
       switch (period) {
         case "today":
           startDate = new Date(
@@ -58,14 +57,10 @@ export const getStudySessions = async (req, res) => {
         default:
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       }
-
       filter.date = { $gte: startDate };
     }
 
-    // Apply completion filter if provided
-    if (completed !== undefined) {
-      filter.completed = completed === "true";
-    }
+    if (completed !== undefined) filter.completed = completed === "true";
 
     const studySessions = await StudySession.find(filter).sort({
       date: 1,
@@ -88,9 +83,8 @@ export const updateStudySession = async (req, res) => {
       { new: true }
     );
 
-    if (!studySession) {
+    if (!studySession)
       return res.status(404).json({ message: "Study session not found" });
-    }
 
     res.json(studySession);
   } catch (error) {
@@ -108,9 +102,8 @@ export const toggleStudySessionCompletion = async (req, res) => {
       user: req.user.uid,
     });
 
-    if (!studySession) {
+    if (!studySession)
       return res.status(404).json({ message: "Study session not found" });
-    }
 
     studySession.completed = !studySession.completed;
     await studySession.save();
@@ -131,9 +124,8 @@ export const deleteStudySession = async (req, res) => {
       user: req.user.uid,
     });
 
-    if (!studySession) {
+    if (!studySession)
       return res.status(404).json({ message: "Study session not found" });
-    }
 
     res.json({ message: "Study session removed" });
   } catch (error) {

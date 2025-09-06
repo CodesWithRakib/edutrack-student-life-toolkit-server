@@ -1,6 +1,43 @@
 import StudyGoal from "../models/studyGoalModel.js";
 import StudySession from "../models/studySessionModel.js";
 
+// Helper function to calculate completed hours
+const calculateCompletedHours = async (
+  userId,
+  subject,
+  period,
+  startDate,
+  endDate
+) => {
+  const match = {
+    user: userId,
+    subject,
+    completed: true,
+  };
+
+  const now = new Date();
+  if (period === "daily") {
+    match.date = {
+      $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+    };
+  } else if (period === "weekly") {
+    match.date = {
+      $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7),
+    };
+  } else if (period === "monthly") {
+    match.date = { $gte: new Date(now.getFullYear(), now.getMonth(), 1) };
+  } else if (startDate && endDate) {
+    match.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+  }
+
+  const result = await StudySession.aggregate([
+    { $match: match },
+    { $group: { _id: null, totalMinutes: { $sum: "$durationMinutes" } } },
+  ]);
+
+  return result.length ? result[0].totalMinutes / 60 : 0; // convert minutes to hours
+};
+
 // @desc    Create a new study goal
 // @route   POST /api/study-goals
 // @access  Private
@@ -8,13 +45,11 @@ export const createStudyGoal = async (req, res) => {
   try {
     const { subject, targetHours, period, startDate, endDate } = req.body;
 
-    // Check if a goal for this subject and period already exists
     const existingGoal = await StudyGoal.findOne({
       user: req.user.uid,
       subject,
       period,
     });
-
     if (existingGoal) {
       return res.status(400).json({
         message: `You already have a ${period} goal for ${subject}`,
@@ -42,19 +77,13 @@ export const createStudyGoal = async (req, res) => {
 export const getStudyGoals = async (req, res) => {
   try {
     const { period } = req.query;
-    let filter = { user: req.user.uid };
-
-    // Apply period filter if provided
-    if (period) {
-      filter.period = period;
-    }
+    const filter = { user: req.user.uid };
+    if (period) filter.period = period;
 
     const studyGoals = await StudyGoal.find(filter);
 
-    // Calculate progress for each goal
     const goalsWithProgress = await Promise.all(
       studyGoals.map(async (goal) => {
-        // Calculate completed hours based on completed study sessions
         const completedHours = await calculateCompletedHours(
           req.user.uid,
           goal.subject,
@@ -63,8 +92,8 @@ export const getStudyGoals = async (req, res) => {
           goal.endDate
         );
 
-        // Update the goal with the calculated hours
         goal.completedHours = completedHours;
+        goal.achieved = completedHours >= goal.targetHours;
         await goal.save();
 
         return goal.toObject();
@@ -75,54 +104,6 @@ export const getStudyGoals = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
-
-// Helper function to calculate completed hours
-const calculateCompletedHours = async (
-  userId,
-  subject,
-  period,
-  startDate,
-  endDate
-) => {
-  let filter = {
-    user: userId,
-    subject,
-    completed: true,
-  };
-
-  // Apply date filter based on period
-  const now = new Date();
-  if (period === "daily") {
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    filter.date = { $gte: today };
-  } else if (period === "weekly") {
-    const weekStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() - 7
-    );
-    filter.date = { $gte: weekStart };
-  } else if (period === "monthly") {
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    filter.date = { $gte: monthStart };
-  } else if (startDate && endDate) {
-    filter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
-  }
-
-  const completedSessions = await StudySession.find(filter);
-
-  // Sum up the hours from completed sessions
-  let totalHours = 0;
-  completedSessions.forEach((session) => {
-    // Parse duration (e.g., "2 hours" -> 2)
-    const duration = parseFloat(session.duration);
-    if (!isNaN(duration)) {
-      totalHours += duration;
-    }
-  });
-
-  return totalHours;
 };
 
 // @desc    Update a study goal
@@ -136,11 +117,9 @@ export const updateStudyGoal = async (req, res) => {
       { new: true }
     );
 
-    if (!studyGoal) {
+    if (!studyGoal)
       return res.status(404).json({ message: "Study goal not found" });
-    }
 
-    // Recalculate completed hours
     studyGoal.completedHours = await calculateCompletedHours(
       req.user.uid,
       studyGoal.subject,
@@ -148,6 +127,7 @@ export const updateStudyGoal = async (req, res) => {
       studyGoal.startDate,
       studyGoal.endDate
     );
+    studyGoal.achieved = studyGoal.completedHours >= studyGoal.targetHours;
 
     await studyGoal.save();
 
@@ -167,9 +147,8 @@ export const deleteStudyGoal = async (req, res) => {
       user: req.user.uid,
     });
 
-    if (!studyGoal) {
+    if (!studyGoal)
       return res.status(404).json({ message: "Study goal not found" });
-    }
 
     res.json({ message: "Study goal removed" });
   } catch (error) {
