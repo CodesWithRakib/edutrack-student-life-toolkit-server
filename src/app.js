@@ -38,8 +38,8 @@ app.use(morgan("dev"));
 app.use(helmet());
 
 // Health check route (add this first)
-app.get("/api/health", (req, res) => {
-  res.json({ message: "Server is running!", timestamp: new Date() });
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to EduTrack API!", timestamp: new Date() });
 });
 
 // Routes - ORDER MATTERS!
