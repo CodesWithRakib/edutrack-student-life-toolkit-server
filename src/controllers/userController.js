@@ -22,6 +22,7 @@ export const createUserIfNotExist = async (req, res) => {
         role: "student",
         status: "active",
         lastLogin: new Date(),
+        reputation: 0,
       });
 
       return res.status(201).json({
@@ -62,6 +63,19 @@ export const getMyProfile = async (req, res) => {
     const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getLeaderboard = async (req, res) => {
+  try {
+    const topUsers = await User.find({ status: "active" })
+      .sort({ reputation: -1 })
+      .limit(20)
+      .select("name avatar reputation role");
+
+    res.json(topUsers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

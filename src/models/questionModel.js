@@ -1,9 +1,10 @@
 // questionModel.js
 import mongoose from "mongoose";
+
 const questionSchema = new mongoose.Schema(
   {
     user: {
-      type: String,
+      type: String, // Firebase UID - always a string
       required: true,
     },
     title: {
@@ -58,6 +59,10 @@ const questionSchema = new mongoose.Schema(
     acceptedAnswer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Answer",
+    },
+    isAnonymous: {
+      type: Boolean,
+      default: false,
     },
     attachments: [
       {

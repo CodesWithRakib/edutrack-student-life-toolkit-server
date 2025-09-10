@@ -8,6 +8,10 @@ import {
   updateClass,
   deleteClass,
   getWeeklySchedule,
+  getClassById,
+  getClassStats,
+  bulkCreateClasses,
+  updateClassColor,
 } from "../controllers/classController.js";
 
 const router = express.Router();
@@ -15,9 +19,12 @@ const router = express.Router();
 router.use(verifyFirebaseToken);
 
 router.route("/").post(createClass).get(getClasses);
+router.route("/weekly").get(getWeeklySchedule);
 router.route("/upcoming").get(getUpcomingClasses);
 router.route("/day/:day").get(getClassesByDay);
-router.route("/:id").put(updateClass).delete(deleteClass);
-router.route("/weekly").get(getWeeklySchedule);
+router.route("/stats").get(getClassStats);
+router.route("/bulk").post(bulkCreateClasses);
+router.route("/:id/color").patch(updateClassColor);
+router.route("/:id").get(getClassById).put(updateClass).delete(deleteClass);
 
 export default router;

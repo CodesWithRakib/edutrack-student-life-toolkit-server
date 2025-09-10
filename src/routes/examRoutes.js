@@ -6,12 +6,14 @@ import {
   deleteExam,
   updateExam,
   submitExam,
+  addQuestions,
 } from "../controllers/examController.js";
 import { verifyFirebaseToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 router.post("/generate", verifyFirebaseToken, generateExam);
+router.post("/:id/questions", verifyFirebaseToken, addQuestions);
 router.post("/:id/submit", verifyFirebaseToken, submitExam);
 router.get("/", verifyFirebaseToken, getExams);
 router.get("/:id", verifyFirebaseToken, getExamById);

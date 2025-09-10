@@ -2,7 +2,13 @@
 import Question from "../models/questionModel.js";
 import Answer from "../models/answerModel.js";
 import Tag from "../models/tagModel.js";
+import User from "../models/userModel.js";
+import {
+  createQuestionUtil,
+  updateQuestionUtil,
+} from "../utils/questionHandler.js";
 import { validationResult } from "express-validator";
+import { handleVote } from "../utils/voteHandler.js";
 
 // @desc    Create a new question
 // @route   POST /api/questions
@@ -11,37 +17,26 @@ export const createQuestion = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
     }
 
-    const { title, content, subject, tags, attachments } = req.body;
-
-    const question = await Question.create({
-      user: req.user.uid,
-      title,
-      content,
-      subject,
-      tags,
-      attachments,
-    });
-
-    // Update tag counts
-    if (tags && tags.length > 0) {
-      for (const tagName of tags) {
-        await Tag.findOneAndUpdate(
-          { name: tagName },
-          { $inc: { count: 1 } },
-          { upsert: true, new: true }
-        );
-      }
-    }
+    const question = await createQuestionUtil(req.user.uid, req.body);
 
     res.status(201).json({
+      success: true,
       message: "Question created successfully",
-      question,
+      data: question,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error creating question:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create question",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -64,7 +59,12 @@ export const getQuestions = async (req, res) => {
 
     // Apply filters
     if (subject && subject !== "all") filter.subject = subject;
-    if (tags && tags.length > 0) filter.tags = { $all: tags };
+
+    let tagArray = [];
+    if (tags) {
+      tagArray = Array.isArray(tags) ? tags : tags.split(",");
+      filter.tags = { $all: tagArray };
+    }
 
     // Search functionality
     if (search) {
@@ -91,19 +91,26 @@ export const getQuestions = async (req, res) => {
       .sort(sortOptions)
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .populate("user", "name avatar")
       .lean();
 
     const total = await Question.countDocuments(filter);
 
     res.json({
-      questions,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total,
+      success: true,
+      data: {
+        questions,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching questions:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch questions",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -112,21 +119,116 @@ export const getQuestions = async (req, res) => {
 // @access  Public
 export const getQuestionById = async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id)
-      .populate("user", "name avatar")
-      .populate("acceptedAnswer");
+    // Fetch question
+    let question = await Question.findById(req.params.id).lean();
 
     if (!question) {
-      return res.status(404).json({ message: "Question not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Question not found",
+      });
     }
 
-    // Increment view count
-    question.views += 1;
-    await question.save();
+    // Increment views
+    await Question.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
 
-    res.json(question);
+    // Get user data for the question
+    if (!question.isAnonymous) {
+      const user = await User.findOne({ firebaseUid: question.user })
+        .select("name avatar role reputation")
+        .lean();
+
+      if (user) {
+        question.user = {
+          name: user.name,
+          avatar: user.avatar,
+          reputation: user.reputation,
+          isTeacher: user.role === "teacher",
+        };
+      } else {
+        question.user = {
+          name: "Unknown User",
+          avatar: null,
+          reputation: 0,
+          isTeacher: false,
+        };
+      }
+    } else {
+      question.user = {
+        name: "Anonymous",
+        avatar: null,
+        reputation: 0,
+        isTeacher: false,
+      };
+    }
+
+    // Fetch all answers with user info
+    const answers = await Answer.find({ question: req.params.id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Get all unique user IDs from the answers
+    const userIds = [...new Set(answers.map((ans) => ans.user))];
+
+    // Fetch user data for all unique user IDs
+    const users = await User.find({ firebaseUid: { $in: userIds } })
+      .select("name avatar role reputation")
+      .lean();
+
+    // Create a map of user IDs to user data for quick lookup
+    const userMap = {};
+    users.forEach((user) => {
+      userMap[user.firebaseUid] = user;
+    });
+
+    // Format answers to include user data
+    const formattedAnswers = answers.map((ans) => {
+      const formattedAnswer = { ...ans };
+
+      if (formattedAnswer.isAnonymous) {
+        formattedAnswer.user = {
+          name: "Anonymous",
+          avatar: null,
+          reputation: 0,
+          isTeacher: false,
+        };
+      } else {
+        // Get user data from our map
+        const userData = userMap[formattedAnswer.user];
+        if (userData) {
+          formattedAnswer.user = {
+            name: userData.name,
+            avatar: userData.avatar || null,
+            reputation: userData.reputation || 0,
+            isTeacher: userData.role === "teacher",
+          };
+        } else {
+          // Fallback if user not found
+          formattedAnswer.user = {
+            name: "Unknown User",
+            avatar: null,
+            reputation: 0,
+            isTeacher: false,
+          };
+        }
+      }
+
+      return formattedAnswer;
+    });
+
+    question.answers = formattedAnswers;
+
+    res.json({
+      success: true,
+      data: question,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching question:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch question",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -137,45 +239,36 @@ export const updateQuestion = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
     }
 
-    const { title, content, subject, tags, attachments } = req.body;
-
-    const question = await Question.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.uid },
-      { title, content, subject, tags, attachments },
-      { new: true }
+    const question = await updateQuestionUtil(
+      req.user.uid,
+      req.params.id,
+      req.body
     );
 
-    if (!question) {
-      return res.status(404).json({ message: "Question not found" });
-    }
-
-    // Update tag counts
-    if (tags && tags.length > 0) {
-      // Decrement old tags
-      const originalTags = question.tags || [];
-      for (const tagName of originalTags) {
-        if (!tags.includes(tagName)) {
-          await Tag.findOneAndUpdate(
-            { name: tagName },
-            { $inc: { count: -1 } }
-          );
-        }
-      }
-
-      // Increment new tags
-      for (const tagName of tags) {
-        if (!originalTags.includes(tagName)) {
-          await Tag.findOneAndUpdate({ name: tagName }, { $inc: { count: 1 } });
-        }
-      }
-    }
-
-    res.json(question);
+    res.json({
+      success: true,
+      data: question,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    if (error.message === "Question not found") {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error("Error updating question:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update question",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -190,7 +283,10 @@ export const deleteQuestion = async (req, res) => {
     });
 
     if (!question) {
-      return res.status(404).json({ message: "Question not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Question not found",
+      });
     }
 
     // Delete all answers associated with this question
@@ -203,9 +299,17 @@ export const deleteQuestion = async (req, res) => {
       }
     }
 
-    res.json({ message: "Question removed" });
+    res.json({
+      success: true,
+      message: "Question removed successfully",
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error deleting question:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete question",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -213,31 +317,25 @@ export const deleteQuestion = async (req, res) => {
 // @route   POST /api/questions/:id/vote
 // @access  Private
 export const voteQuestion = async (req, res) => {
-  console.log(req.body);
   try {
-    const { type } = req.body;
+    const question = await handleVote({
+      userId: req.user.uid,
+      type: req.body.type,
+      targetId: req.params.id,
+      targetType: "question",
+      model: Question,
+    });
 
-    if (!["up", "down"].includes(type)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid vote type. Use 'up' or 'down'" });
-    }
-
-    const question = await Question.findById(req.params.id);
-    if (!question) {
-      return res.status(404).json({ message: "Question not found" });
-    }
-
-    if (type === "up") {
-      question.votes += 1;
-    } else {
-      question.votes -= 1;
-    }
-
-    await question.save();
-    res.json(question);
+    res.json({
+      success: true,
+      data: question,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error voting on question:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -247,9 +345,18 @@ export const voteQuestion = async (req, res) => {
 export const getPopularTags = async (req, res) => {
   try {
     const tags = await Tag.find().sort({ count: -1 }).limit(20);
-    res.json(tags);
+
+    res.json({
+      success: true,
+      data: tags,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching popular tags:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch popular tags",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -264,16 +371,24 @@ export const getStats = async (req, res) => {
     const totalTags = await Tag.countDocuments();
 
     res.json({
-      totalQuestions,
-      totalAnswers,
-      solvedQuestions,
-      totalTags,
-      successRate:
-        totalQuestions > 0
-          ? Math.round((solvedQuestions / totalQuestions) * 100)
-          : 0,
+      success: true,
+      data: {
+        totalQuestions,
+        totalAnswers,
+        solvedQuestions,
+        totalTags,
+        successRate:
+          totalQuestions > 0
+            ? Math.round((solvedQuestions / totalQuestions) * 100)
+            : 0,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch statistics",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };

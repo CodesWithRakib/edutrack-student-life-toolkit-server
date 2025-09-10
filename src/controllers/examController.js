@@ -35,6 +35,27 @@ export const generateExam = async (req, res) => {
   }
 };
 
+// POST /exams/:id/questions
+export const addQuestions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questions } = req.body;
+    const user = req.user;
+
+    const exam = await Exam.findOneAndUpdate(
+      { _id: id, createdBy: user.uid },
+      { $push: { questions: { $each: questions } } },
+      { new: true }
+    );
+
+    if (!exam) return res.status(404).json({ error: "Exam not found" });
+    res.json({ exam });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to add questions" });
+  }
+};
+
 // 🔹 Get all exams
 export const getExams = async (req, res) => {
   try {

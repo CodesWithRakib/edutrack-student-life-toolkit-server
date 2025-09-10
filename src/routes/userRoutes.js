@@ -12,6 +12,7 @@ import {
   deleteUser,
   suspendUser,
   activateUser,
+  getLeaderboard,
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -33,6 +34,9 @@ router
 // Admin-only routes
 // ------------------
 router.route("/").get(verifyFirebaseToken, requireAdmin, getAllUsers);
+
+// userRoutes.js
+router.get("/leaderboard", verifyFirebaseToken, getLeaderboard);
 
 router
   .route("/:id/role")

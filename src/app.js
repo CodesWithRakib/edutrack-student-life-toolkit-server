@@ -23,8 +23,9 @@ import questionRoutes from "./routes/questionRoutes.js";
 import answerRoutes from "./routes/answerRoutes.js";
 // performance
 import performanceRoutes from "./routes/performanceRoutes.js";
-import resourceRoutes from "./routes/resourceRoutes.js";
 import examRoutes from "./routes/examRoutes.js";
+import statsRoutes from "./routes/statsRoutes.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -54,7 +55,8 @@ app.use("/api/study-goals", studyGoalRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/answers", answerRoutes);
 app.use("/api/performance", performanceRoutes);
-app.use("/api/resources", resourceRoutes);
 app.use("/api/exams", examRoutes);
+app.use("/api/stats", statsRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 export default app;
